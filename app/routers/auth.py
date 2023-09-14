@@ -32,8 +32,6 @@ async def create_user(payload: schemas.CreateUserSchema, request: Request):
     #  Hash the password
     payload.password = utils.hash_password(payload.password)
     del payload.passwordConfirm
-    payload.role = 'user'
-    payload.verified = False
     payload.email = payload.email.lower()
     payload.created_at = datetime.utcnow()
     payload.updated_at = payload.created_at
@@ -48,8 +46,6 @@ async def create_user(payload: schemas.CreateUserSchema, request: Request):
         User.find_one_and_update({"_id": result.inserted_id}, {
             "$set": {"verification_code": verification_code, "updated_at": datetime.utcnow()}})
 
-        url = f"{request.url.scheme}://{request.client.host}:{request.url.port}/api/auth/verifyemail/{token.hex()}"
-        await Email(userEntity(new_user), url, [EmailStr(payload.email)]).sendVerificationCode()
     except Exception as error:
         User.find_one_and_update({"_id": result.inserted_id}, {
             "$set": {"verification_code": None, "updated_at": datetime.utcnow()}})
@@ -67,12 +63,6 @@ def login(payload: schemas.LoginUserSchema, response: Response, Authorize: AuthJ
                             detail='Incorrect Email or Password')
     user = userEntity(db_user)
 
-    # Check if user verified his email
-    if not user['verified']:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Please verify your email address')
-
-    # Check if the password is valid
     if not utils.verify_password(payload.password, user['password']):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail='Incorrect Email or Password')
