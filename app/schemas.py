@@ -46,6 +46,7 @@ class Message(BaseModel):
 
 
 class Group(BaseModel):
+    id: str
     name: str
     members: List[str] = []
 
@@ -53,13 +54,3 @@ class Group(BaseModel):
 class AddMembersRequest(BaseModel):
     group_id: str
     members: List[str]
-
-
-# Модель данных для групп
-class GroupModel:
-    def __init__(self, name, members=[]):
-        self.name = name
-        self.members = members
-
-    def to_dict(self):
-        return {"name": self.name, "members": self.members}

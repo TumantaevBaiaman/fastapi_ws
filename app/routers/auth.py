@@ -7,7 +7,6 @@ from pydantic import EmailStr
 
 from app import oauth2
 from app.database import User
-from app.email import Email
 from app.serializers.userSerializers import userEntity
 from .. import schemas, utils
 from app.oauth2 import AuthJWT
