@@ -58,9 +58,9 @@ class PostBaseSchema(BaseModel):
         json_encoders = {ObjectId: str}
 
 
-# class CreatePostSchema(PostBaseSchema):
-#     user: ObjectId = None
-#     pass
+class CreatePostSchema(PostBaseSchema):
+    user: ObjectId = None
+    pass
 
 
 class PostResponse(PostBaseSchema):
