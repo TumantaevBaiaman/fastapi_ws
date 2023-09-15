@@ -44,8 +44,9 @@
 
     let client_id = Date.now()
     let group_id = "{{ group_id }}";
+    let access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI2NTAzM2I5NzAwYzk2ZWIxZmJkMTc2YWYiLCJpYXQiOjE2OTQ3Njc2NDAsIm5iZiI6MTY5NDc2NzY0MCwianRpIjoiNTE0ZDE2YTMtZTZmNC00ZTQ5LWEwZGYtMDAxMzVkMTY4NGU4IiwiZXhwIjoxNjk0NzY4NTQwLCJ0eXBlIjoiYWNjZXNzIiwiZnJlc2giOmZhbHNlfQ.WgNaHZOu9mwqPqowjF1zsxYeRsROXw0N0VaRVQg2DBsbwFE6JuYbXN2FZKZxnZTi_WPL-ilMEwxvkwBUbbOWvw"
     document.querySelector("#ws-id").textContent = client_id;
-    let ws = new WebSocket(`ws://localhost:8000/api/chat/ws/${group_id}`);
+    let ws = new WebSocket(`ws://localhost:8000/api/chat/ws/${access_token}`);
     ws.onmessage = function (event) {
         appendMessage(event.data)
     };
