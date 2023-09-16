@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Title</title>
+    {% include '_styles.html' %}
 </head>
 <body>
 
@@ -17,38 +18,41 @@
 </ul>
 </div>
 <script>
+
     async function getLastMessages() {
-        const url = 'http://localhost:8000/chat/last_messages'
+        let url = `http://127.0.0.1:8000/api/chat/last_message/{{ group_id }}`;
         const response = await fetch(url, {
-            method: 'GET'
-        })
-        return response.json()
+            method: "GET"
+        });
+        return response.json();
     }
 
     getLastMessages()
-        .then(messages => {
-            appendMessage("Предыдущие 5 сообщений:")
-            messages.forEach(msg => {
-                appendMessage(msg.message)
+        .then(message => {
+            appendMessage("Предыдущие")
+            message.forEach(msg => {
+                appendMessage(msg["message"])
             })
-            appendMessage("\nНовые сообщения:")
+            appendMessage("Новые")
         })
 
-    function appendMessage(msg) {
-        let messages = document.getElementById('messages')
-        let message = document.createElement('li')
+    function appendMessage(msg){
+        let messages = document.getElementById("messages")
+        let message = document.createElement("li")
         let content = document.createTextNode(msg)
+
         message.appendChild(content)
         messages.appendChild(message)
     }
 
     let client_id = Date.now()
-    let group_id = "{{ group_id }}";
+    let group_id = "{{ group_id }}"
     let access_token = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI2NTAzM2I5NzAwYzk2ZWIxZmJkMTc2YWYiLCJpYXQiOjE2OTQ3Njc2NDAsIm5iZiI6MTY5NDc2NzY0MCwianRpIjoiNTE0ZDE2YTMtZTZmNC00ZTQ5LWEwZGYtMDAxMzVkMTY4NGU4IiwiZXhwIjoxNjk0NzY4NTQwLCJ0eXBlIjoiYWNjZXNzIiwiZnJlc2giOmZhbHNlfQ.WgNaHZOu9mwqPqowjF1zsxYeRsROXw0N0VaRVQg2DBsbwFE6JuYbXN2FZKZxnZTi_WPL-ilMEwxvkwBUbbOWvw"
     document.querySelector("#ws-id").textContent = client_id;
-    let ws = new WebSocket(`ws://localhost:8000/api/chat/ws/${access_token}`);
+    let ws = new WebSocket(`ws://127.0.0.1:8000/api/chat/ws/${client_id}/${group_id}`);
     ws.onmessage = function (event) {
         appendMessage(event.data)
+
     };
 
     function sendMessage(event) {

@@ -41,7 +41,8 @@ class FilteredUserResponse(UserBaseSchema):
 
 
 class Message(BaseModel):
-    user: str
+    group_id: str
+    user_id: str
     message: str
 
 

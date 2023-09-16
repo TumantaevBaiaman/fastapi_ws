@@ -1,6 +1,6 @@
 import uuid
 
-from typing import Annotated
+from typing import Annotated, List
 import jwt
 from fastapi import APIRouter, Request, HTTPException, Depends, Header
 from fastapi.templating import Jinja2Templates
@@ -46,77 +46,74 @@ async def create_group(id: str):
     else:
         return GroupSerializer(group)
 
-
-async def authenticate_user_from_token(websocket: WebSocket):
-    try:
-        token = websocket.headers.get("Authorization")
-
-        if not token:
-            raise WebSocketDisconnect
-        user_id = decode_token(token)
-        print(user_id)
-
-        if not user_id:
-            raise WebSocketDisconnect
-
-        # Получите пользователя из базы данных или другого хранилища
-        user = User.find_one(user_id)
-
-        if not user:
-            raise WebSocketDisconnect
-
-        # Сохраните пользователя в состоянии WebSocket-соединения
-        websocket.state.user = user
-
-    except WebSocketDisconnect:
-        await websocket.close()
-        return websocket
-
-    return websocket
+# ---------------------------------   CHAT WEBSOCKET  -----------------------------------------
 
 
-# Зависимость для аутентификации пользователя по токену
-async def get_user_from_token(websocket: WebSocket = Depends(authenticate_user_from_token)):
-    return websocket.state.user
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = {}
+
+    async def connect(self, websocket: WebSocket, group_id: str):
+        await websocket.accept()
+        if group_id not in self.active_connections:
+            self.active_connections[group_id] = []
+        self.active_connections[group_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, group_id: str):
+        if group_id in self.active_connections:
+            self.active_connections[group_id].remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+    async def broadcast(self, websocket: WebSocket, message: str, add_to_db: bool, group_id: str, client_id: str):
+        if add_to_db:
+            await self.add_messages_to_database(message, group_id, client_id)
+        if group_id in self.active_connections:
+            for connection in self.active_connections[group_id]:
+                await connection.send_text(message)
+
+    @staticmethod
+    async def add_messages_to_database(message: str, group_id: str, client_id: str):
+        inserted_message = Chat.message.insert_one({
+            "user_id": client_id,
+            "group_id": group_id,
+            "message": message
+        })
+
+        if not inserted_message.acknowledged:
+            raise HTTPException(status_code=500, detail="Failed to create the group")
 
 
-def get_user_from_access_token(access_token: str):
-    SECRET_KEY = settings.JWT_PUBLIC_KEY
-    try:
-        decoded_token = jwt.decode(access_token, SECRET_KEY, algorithms=["HS256"])
-        user_id = decoded_token.get("sub")
-        return user_id
-
-    except jwt.ExpiredSignatureError:
-        return None
-
-    except jwt.InvalidTokenError:
-        return None
+manager = ConnectionManager()
 
 
-@router.websocket("/ws/{access_token}")
-async def websocket_endpoint(websocket: WebSocket, access_token: str):
-    active_groups = {i["id"]: i for i in Chat.groups.find()}
-    await websocket.accept()
-    group_id = 1
-    user = get_user_from_access_token(access_token)
-    if group_id not in active_groups:
-        active_groups[group_id] = {"members": []}
+@router.get("/last_message/{group_id}")
+def get_last_message(request: Request, group_id: str):
+    messages: list = [
+        {
+            "group_id": i["group_id"],
+            "message": i["message"],
+            "user_id": i["user_id"]
+        }
+        for i in Chat.message.find() if i["group_id"] == group_id]
+    return messages
 
-    active_groups[group_id]["members"].append(websocket)
 
+@router.get("/{group_id}")
+def get_chat_page(request: Request, group_id: str):
+    return templates.TemplateResponse("chat.html", {"request": request, "group_id": group_id})
+
+
+@router.websocket("/ws/{id_client}/{group_id}")
+async def websocket_endpoint(websocket: WebSocket, id_client: str, group_id: str):
+    await manager.connect(websocket, group_id=group_id)
     try:
         while True:
             data = await websocket.receive_text()
-            message = Message(user=websocket.client.host, message=data)
-
-            for connection in active_groups[group_id]["members"]:
-                await connection.send_text(message.json())
-
+            await manager.broadcast(websocket, f"{data}", add_to_db=True, group_id=group_id, client_id=id_client)
     except WebSocketDisconnect:
-        active_groups[group_id]["members"].remove(websocket)
-
-        if not active_groups[group_id]["members"]:
-            del active_groups[group_id]
+        manager.disconnect(websocket, group_id=group_id)
+        await manager.broadcast(websocket, f"{id_client} left the chat", add_to_db=False, group_id=group_id, client_id=id_client)
 
 
