@@ -102,6 +102,12 @@ def get_last_message(request: Request, group_id: str):
 
 @router.get("/{group_id}")
 def get_chat_page(request: Request, group_id: str):
+    group = Chat.groups.find_one({"id": group_id})
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='No Group'
+        )
     return templates.TemplateResponse("chat.html", {"request": request, "group_id": group_id})
 
 
